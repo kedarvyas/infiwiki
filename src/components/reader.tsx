@@ -80,12 +80,13 @@ export default function Reader() {
       console.log('Reader: Calling apiGetByTitle...');
       const article = await apiGetByTitle(title)
       console.log('Reader: Got article:', article?.title);
-      qc.setQueryData(['infiniteArticles'], (old: any) => {
-        if (!old) return { pageParams: [0], pages: [article] }
+      qc.setQueryData(['infiniteArticles'], (old: unknown) => {
+        const oldData = old as { pageParams: number[]; pages: typeof article[] } | undefined;
+        if (!oldData) return { pageParams: [0], pages: [article] }
         return {
-          ...old,
-          pageParams: [0, ...old.pageParams.map((p: number) => p + 1)],
-          pages: [article, ...old.pages], // Add to BEGINNING of array
+          ...oldData,
+          pageParams: [0, ...oldData.pageParams.map((p: number) => p + 1)],
+          pages: [article, ...oldData.pages], // Add to BEGINNING of array
         }
       })
       console.log('Reader: Article prepended successfully');
@@ -100,12 +101,13 @@ export default function Reader() {
       console.log('Reader: Calling apiGetByTitle...');
       const article = await apiGetByTitle(title)
       console.log('Reader: Got article:', article?.title);
-      qc.setQueryData(['infiniteArticles'], (old: any) => {
-        if (!old) return { pageParams: [0, 1], pages: [article] }
+      qc.setQueryData(['infiniteArticles'], (old: unknown) => {
+        const oldData = old as { pageParams: number[]; pages: typeof article[] } | undefined;
+        if (!oldData) return { pageParams: [0, 1], pages: [article] }
         return {
-          ...old,
-          pageParams: [...old.pageParams, old.pageParams.length],
-          pages: [...old.pages, article],
+          ...oldData,
+          pageParams: [...oldData.pageParams, oldData.pageParams.length],
+          pages: [...oldData.pages, article],
         }
       })
       console.log('Reader: Article appended successfully');
