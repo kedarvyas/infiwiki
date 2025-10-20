@@ -10,7 +10,7 @@ export default function HomeContent() {
   // In tests we provide QueryClient via wrapper; in app we’ll wrap in layout
   const { data, isLoading, error } = useQuery({
     queryKey: ['randomArticle'],
-    queryFn: apiGetRandom,
+    queryFn: ({ signal }) => apiGetRandom(signal),
   });
 
   return (
