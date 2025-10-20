@@ -19,7 +19,17 @@ export default function Reader() {
     error, // <— capture
   } = useInfiniteQuery({
     queryKey: ['infiniteArticles'],
-    queryFn: async ({ signal }) => apiGetRandom(undefined, signal),
+    queryFn: async ({ signal, pageParam }) => {
+      // Keep fetching until we get a unique article
+      const seenUrls = new Set(data?.pages.map(p => p?.url).filter(Boolean) ?? [])
+      let article = await apiGetRandom(undefined, signal)
+      let attempts = 0
+      while (seenUrls.has(article.url) && attempts < 5) {
+        article = await apiGetRandom(undefined, signal)
+        attempts++
+      }
+      return article
+    },
     getNextPageParam: (_last, pages) => pages.length,
     initialPageParam: 0,
     retry: false, // <— important while debugging
