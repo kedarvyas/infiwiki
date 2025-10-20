@@ -7,10 +7,12 @@ import ArticleView from './article-view'
 import TopMenu from './top-menu'
 import SelectionNavigator from './selection-navigator'
 import FooterAttribution from './footer-attribution'
+import CategorySelector from './category-selector'
 
 export default function Reader() {
   const qc = useQueryClient()
   const seenUrlsRef = React.useRef(new Set<string>())
+  const [selectedCategory, setSelectedCategory] = React.useState<string | null>(null)
 
   // Initialize seenUrlsRef from cache on mount
   React.useEffect(() => {
@@ -31,13 +33,13 @@ export default function Reader() {
     status,
     error, // <— capture
   } = useInfiniteQuery({
-    queryKey: ['infiniteArticles'],
+    queryKey: ['infiniteArticles', selectedCategory],
     queryFn: async ({ signal, pageParam }) => {
       // Keep fetching until we get a unique article
-      let article = await apiGetRandom(undefined, signal)
+      let article = await apiGetRandom(selectedCategory || undefined, signal)
       let attempts = 0
       while (seenUrlsRef.current.has(article.url) && attempts < 5) {
-        article = await apiGetRandom(undefined, signal)
+        article = await apiGetRandom(selectedCategory || undefined, signal)
         attempts++
       }
       seenUrlsRef.current.add(article.url)
@@ -79,6 +81,13 @@ export default function Reader() {
   const pages = data?.pages ?? []
 
   const [searchQuery, setSearchQuery] = React.useState('')
+
+  // Handle category change - reset everything
+  const handleCategoryChange = (category: string | null) => {
+    setSelectedCategory(category)
+    seenUrlsRef.current.clear()
+    qc.resetQueries({ queryKey: ['infiniteArticles'] })
+  }
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -159,9 +168,9 @@ export default function Reader() {
     <div className="min-h-screen overflow-x-hidden">
       <TopMenu />
       <div className="max-w-3xl mx-auto px-4">
-        {/* Search Box - positioned in top left, aligned with content */}
-        <div className="pt-6">
-          <form onSubmit={handleSearch}>
+        {/* Search Box and Category Selector */}
+        <div className="pt-6 flex items-center gap-4">
+          <form onSubmit={handleSearch} className="flex-1">
             <input
               type="text"
               value={searchQuery}
@@ -171,6 +180,10 @@ export default function Reader() {
               style={{fontFamily: "'Courier New', 'Monaco', 'Space Mono', 'Consolas', 'Lucida Console', monospace"}}
             />
           </form>
+          <CategorySelector
+            selectedCategory={selectedCategory}
+            onCategoryChange={handleCategoryChange}
+          />
         </div>
         <header className="pt-10 pb-8 text-center overflow-x-auto">
           <h1
