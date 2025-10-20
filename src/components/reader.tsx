@@ -10,6 +10,7 @@ import FooterAttribution from './footer-attribution'
 
 export default function Reader() {
   const qc = useQueryClient()
+  const seenUrlsRef = React.useRef(new Set<string>())
 
   const {
     data,
@@ -21,13 +22,13 @@ export default function Reader() {
     queryKey: ['infiniteArticles'],
     queryFn: async ({ signal, pageParam }) => {
       // Keep fetching until we get a unique article
-      const seenUrls = new Set(data?.pages.map(p => p?.url).filter(Boolean) ?? [])
       let article = await apiGetRandom(undefined, signal)
       let attempts = 0
-      while (seenUrls.has(article.url) && attempts < 5) {
+      while (seenUrlsRef.current.has(article.url) && attempts < 5) {
         article = await apiGetRandom(undefined, signal)
         attempts++
       }
+      seenUrlsRef.current.add(article.url)
       return article
     },
     getNextPageParam: (_last, pages) => pages.length,
