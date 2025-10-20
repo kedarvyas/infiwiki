@@ -197,3 +197,86 @@ export async function searchTitle(phrase: string): Promise<string> {
   const best = data.query?.search?.[0]?.title;
   return best || q;
 }
+
+/**
+ * Get articles from a category (including subcategories recursively)
+ * Returns a list of article titles from the category
+ */
+async function getArticlesFromCategory(
+  category: string,
+  maxArticles: number = 50,
+  maxDepth: number = 1
+): Promise<string[]> {
+  const articles: Set<string> = new Set();
+  const visitedCategories: Set<string> = new Set();
+
+  async function fetchFromCategory(cat: string, depth: number): Promise<void> {
+    if (depth > maxDepth || visitedCategories.has(cat) || articles.size >= maxArticles) {
+      return;
+    }
+
+    visitedCategories.add(cat);
+
+    type CategoryMembersResponse = {
+      query?: {
+        categorymembers?: Array<{ title: string; ns: number }>;
+      };
+    };
+
+    try {
+      // Get pages (articles) from this category
+      const pagesUrl =
+        'https://en.wikipedia.org/w/api.php' +
+        `?action=query&list=categorymembers&cmtitle=Category:${encodeURIComponent(cat)}` +
+        '&cmtype=page&cmnamespace=0&cmlimit=50&format=json&origin=*';
+
+      const pagesData = await fetchJSON<CategoryMembersResponse>(pagesUrl);
+      const pages = pagesData.query?.categorymembers || [];
+
+      pages.forEach(page => {
+        if (articles.size < maxArticles) {
+          articles.add(page.title);
+        }
+      });
+
+      // If we don't have enough articles yet, get from subcategories
+      if (articles.size < maxArticles && depth < maxDepth) {
+        const subcatsUrl =
+          'https://en.wikipedia.org/w/api.php' +
+          `?action=query&list=categorymembers&cmtitle=Category:${encodeURIComponent(cat)}` +
+          '&cmtype=subcat&cmlimit=5&format=json&origin=*';
+
+        const subcatsData = await fetchJSON<CategoryMembersResponse>(subcatsUrl);
+        const subcats = subcatsData.query?.categorymembers || [];
+
+        // Process subcategories
+        for (const subcat of subcats) {
+          if (articles.size >= maxArticles) break;
+          const subcatName = subcat.title.replace(/^Category:/, '');
+          await fetchFromCategory(subcatName, depth + 1);
+        }
+      }
+    } catch (error) {
+      console.error(`Error fetching category ${cat}:`, error);
+      // Continue even if one category fails
+    }
+  }
+
+  await fetchFromCategory(category, 0);
+  return Array.from(articles);
+}
+
+/**
+ * Get a random article from a specific category
+ */
+export async function getRandomArticleFromCategory(category: string): Promise<Article> {
+  const articles = await getArticlesFromCategory(category, 50, 1);
+
+  if (articles.length === 0) {
+    throw new Error(`No articles found in category: ${category}`);
+  }
+
+  // Pick a random article
+  const randomTitle = articles[Math.floor(Math.random() * articles.length)];
+  return buildArticleFromTitle(randomTitle);
+}

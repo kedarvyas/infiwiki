@@ -19,7 +19,7 @@ export default function Reader() {
     error, // <— capture
   } = useInfiniteQuery({
     queryKey: ['infiniteArticles'],
-    queryFn: async () => apiGetRandom(),
+    queryFn: async ({ signal }) => apiGetRandom(undefined, signal),
     getNextPageParam: (_last, pages) => pages.length,
     initialPageParam: 0,
     retry: false, // <— important while debugging

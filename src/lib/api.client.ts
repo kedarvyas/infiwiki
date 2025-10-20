@@ -27,8 +27,9 @@ async function getJSON<T>(path: string, init?: RequestInit): Promise<T> {
     return body as T
 }
 
-export async function apiGetRandom(signal?: AbortSignal) {
-    return getJSON<Article>('/api/wiki/random', { signal })
+export async function apiGetRandom(category?: string, signal?: AbortSignal) {
+    const url = category ? `/api/wiki/random?category=${encodeURIComponent(category)}` : '/api/wiki/random';
+    return getJSON<Article>(url, { signal })
 }
 
 export async function apiGetByTitle(title: string, signal?: AbortSignal) {
