@@ -16,7 +16,7 @@ export default function Reader() {
 
   // Initialize seenUrlsRef from cache on mount
   React.useEffect(() => {
-    const cachedData = qc.getQueryData(['infiniteArticles']) as { pages: Array<{ url: string }> } | undefined
+    const cachedData = qc.getQueryData(['infiniteArticles', selectedCategory]) as { pages: Array<{ url: string }> } | undefined
     if (cachedData?.pages) {
       cachedData.pages.forEach(article => {
         if (article?.url) {
@@ -24,7 +24,7 @@ export default function Reader() {
         }
       })
     }
-  }, [qc])
+  }, [qc, selectedCategory])
 
   const {
     data,
@@ -120,7 +120,7 @@ export default function Reader() {
       }
 
       seenUrlsRef.current.add(article.url)
-      qc.setQueryData(['infiniteArticles'], (old: unknown) => {
+      qc.setQueryData(['infiniteArticles', selectedCategory], (old: unknown) => {
         const oldData = old as { pageParams: number[]; pages: typeof article[] } | undefined;
         if (!oldData) return { pageParams: [0], pages: [article] }
         return {
@@ -149,7 +149,7 @@ export default function Reader() {
       }
 
       seenUrlsRef.current.add(article.url)
-      qc.setQueryData(['infiniteArticles'], (old: unknown) => {
+      qc.setQueryData(['infiniteArticles', selectedCategory], (old: unknown) => {
         const oldData = old as { pageParams: number[]; pages: typeof article[] } | undefined;
         if (!oldData) return { pageParams: [0, 1], pages: [article] }
         return {
@@ -167,10 +167,17 @@ export default function Reader() {
   return (
     <div className="min-h-screen overflow-x-hidden">
       <TopMenu />
+      {/* Category Selector - aligned with menu */}
+      <div className="fixed top-4 right-16 md:right-[calc((100vw-48rem)/2+4rem)] z-50">
+        <CategorySelector
+          selectedCategory={selectedCategory}
+          onCategoryChange={handleCategoryChange}
+        />
+      </div>
       <div className="max-w-3xl mx-auto px-4">
-        {/* Search Box and Category Selector */}
-        <div className="pt-6 flex items-center gap-4">
-          <form onSubmit={handleSearch} className="flex-1">
+        {/* Search Box */}
+        <div className="pt-6">
+          <form onSubmit={handleSearch}>
             <input
               type="text"
               value={searchQuery}
@@ -180,10 +187,6 @@ export default function Reader() {
               style={{fontFamily: "'Courier New', 'Monaco', 'Space Mono', 'Consolas', 'Lucida Console', monospace"}}
             />
           </form>
-          <CategorySelector
-            selectedCategory={selectedCategory}
-            onCategoryChange={handleCategoryChange}
-          />
         </div>
         <header className="pt-10 pb-8 text-center overflow-x-auto">
           <h1

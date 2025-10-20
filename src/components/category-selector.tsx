@@ -15,6 +15,7 @@ import { Filter } from 'lucide-react';
 export const CATEGORIES = [
   { id: null, name: 'All Topics', value: null },
   { id: 'science', name: 'Science', value: 'Science' },
+  { id: 'sports', name: 'Sports', value: 'Sports' },
 ] as const;
 
 interface CategorySelectorProps {

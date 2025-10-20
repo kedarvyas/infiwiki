@@ -204,8 +204,8 @@ export async function searchTitle(phrase: string): Promise<string> {
  */
 async function getArticlesFromCategory(
   category: string,
-  maxArticles: number = 50,
-  maxDepth: number = 1
+  maxArticles: number = 100,
+  maxDepth: number = 2
 ): Promise<string[]> {
   const articles: Set<string> = new Set();
   const visitedCategories: Set<string> = new Set();
@@ -239,17 +239,17 @@ async function getArticlesFromCategory(
         }
       });
 
-      // If we don't have enough articles yet, get from subcategories
-      if (articles.size < maxArticles && depth < maxDepth) {
+      // Always explore subcategories to get diverse content
+      if (depth < maxDepth) {
         const subcatsUrl =
           'https://en.wikipedia.org/w/api.php' +
           `?action=query&list=categorymembers&cmtitle=Category:${encodeURIComponent(cat)}` +
-          '&cmtype=subcat&cmlimit=5&format=json&origin=*';
+          '&cmtype=subcat&cmlimit=10&format=json&origin=*';
 
         const subcatsData = await fetchJSON<CategoryMembersResponse>(subcatsUrl);
         const subcats = subcatsData.query?.categorymembers || [];
 
-        // Process subcategories
+        // Process subcategories in parallel batches
         for (const subcat of subcats) {
           if (articles.size >= maxArticles) break;
           const subcatName = subcat.title.replace(/^Category:/, '');
@@ -270,7 +270,7 @@ async function getArticlesFromCategory(
  * Get a random article from a specific category
  */
 export async function getRandomArticleFromCategory(category: string): Promise<Article> {
-  const articles = await getArticlesFromCategory(category, 50, 1);
+  const articles = await getArticlesFromCategory(category, 100, 2);
 
   if (articles.length === 0) {
     throw new Error(`No articles found in category: ${category}`);
