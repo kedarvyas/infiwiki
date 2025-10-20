@@ -8,12 +8,12 @@ const UA =
 
 function sanitizeHtml(html: string): string {
   const { window } = new JSDOM('');
-  const DOMPurify = createDOMPurify(window as unknown as Window);
-  
+  const DOMPurify = createDOMPurify(window);
+
   // Create a temporary DOM to clean up unwanted elements
   const dom = new JSDOM(html);
   const document = dom.window.document;
-  
+
   // Remove citation warning boxes and similar maintenance notices
   const unwantedSelectors = [
     '.ambox',           // Article message boxes (citations needed, etc.)
@@ -33,15 +33,15 @@ function sanitizeHtml(html: string): string {
     '.mw-file-description', // File descriptions
     'table[class*="infobox"]' // Infoboxes (optional - remove if too aggressive)
   ];
-  
+
   unwantedSelectors.forEach(selector => {
     const elements = document.querySelectorAll(selector);
-    elements.forEach(el => el.remove());
+    elements.forEach((el: Element) => el.remove());
   });
-  
+
   // Remove elements that only contain whitespace
   const allElements = document.querySelectorAll('*');
-  allElements.forEach(el => {
+  allElements.forEach((el: Element) => {
     if (!el.textContent?.trim() && !el.querySelector('img, video, audio, canvas, svg')) {
       el.remove();
     }
@@ -49,41 +49,42 @@ function sanitizeHtml(html: string): string {
 
   // Fix internal Wikipedia links to prevent 404s
   const links = document.querySelectorAll('a[href]');
-  links.forEach(link => {
-    const href = link.getAttribute('href') || '';
-    
+  links.forEach((link: Element) => {
+    const anchor = link as HTMLAnchorElement;
+    const href = anchor.getAttribute('href') || '';
+
     // Check for various Wikipedia link formats
-    if (href.startsWith('/wiki/') || 
+    if (href.startsWith('/wiki/') ||
         href.startsWith('./') ||
         (href.startsWith('/') && !href.startsWith('//') && !href.includes('://'))) {
       // Convert to external Wikipedia link that opens in new tab
       let title = href.replace(/^(\/wiki\/|\.\/|\/)/g, '');
       // Handle URL encoding if needed
       title = decodeURIComponent(title);
-      link.setAttribute('href', `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`);
-      link.setAttribute('target', '_blank');
-      link.setAttribute('rel', 'noopener noreferrer');
+      anchor.setAttribute('href', `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`);
+      anchor.setAttribute('target', '_blank');
+      anchor.setAttribute('rel', 'noopener noreferrer');
     } else if (href.startsWith('#')) {
       // Remove anchor links entirely (they don't work in our context)
-      link.removeAttribute('href');
-      link.style.cursor = 'default';
-      link.style.textDecoration = 'none';
+      anchor.removeAttribute('href');
+      anchor.style.cursor = 'default';
+      anchor.style.textDecoration = 'none';
     } else if (!href.includes('://') && !href.startsWith('mailto:')) {
       // Any other relative links that might cause 404s - convert to Wikipedia
       const title = href.replace(/^\/+/g, ''); // Remove leading slashes
       if (title && title.length > 0) {
-        link.setAttribute('href', `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`);
-        link.setAttribute('target', '_blank');
-        link.setAttribute('rel', 'noopener noreferrer');
+        anchor.setAttribute('href', `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`);
+        anchor.setAttribute('target', '_blank');
+        anchor.setAttribute('rel', 'noopener noreferrer');
       } else {
         // If we can't determine the title, remove the link
-        link.removeAttribute('href');
-        link.style.cursor = 'default';
-        link.style.textDecoration = 'none';
+        anchor.removeAttribute('href');
+        anchor.style.cursor = 'default';
+        anchor.style.textDecoration = 'none';
       }
     }
   });
-  
+
   const cleanedHtml = document.body.innerHTML;
   return DOMPurify.sanitize(cleanedHtml, { USE_PROFILES: { html: true } });
 }
