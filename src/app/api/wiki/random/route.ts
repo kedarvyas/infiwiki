@@ -15,7 +15,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(article, {
       status: 200,
-      headers: { 'Cache-Control': 's-maxage=3600, stale-while-revalidate=1800' },
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, private' },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal error';

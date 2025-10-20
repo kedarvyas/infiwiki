@@ -28,7 +28,11 @@ async function getJSON<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function apiGetRandom(category?: string, signal?: AbortSignal) {
-    const url = category ? `/api/wiki/random?category=${encodeURIComponent(category)}` : '/api/wiki/random';
+    // Add timestamp to prevent caching
+    const timestamp = Date.now()
+    const url = category
+        ? `/api/wiki/random?category=${encodeURIComponent(category)}&t=${timestamp}`
+        : `/api/wiki/random?t=${timestamp}`;
     return getJSON<Article>(url, { signal })
 }
 
