@@ -12,6 +12,18 @@ export default function Reader() {
   const qc = useQueryClient()
   const seenUrlsRef = React.useRef(new Set<string>())
 
+  // Initialize seenUrlsRef from cache on mount
+  React.useEffect(() => {
+    const cachedData = qc.getQueryData(['infiniteArticles']) as { pages: Array<{ url: string }> } | undefined
+    if (cachedData?.pages) {
+      cachedData.pages.forEach(article => {
+        if (article?.url) {
+          seenUrlsRef.current.add(article.url)
+        }
+      })
+    }
+  }, [qc])
+
   const {
     data,
     fetchNextPage,
@@ -91,6 +103,14 @@ export default function Reader() {
       console.log('Reader: Calling apiGetByTitle...');
       const article = await apiGetByTitle(title)
       console.log('Reader: Got article:', article?.title);
+
+      // Check if article already exists
+      if (seenUrlsRef.current.has(article.url)) {
+        console.log('Reader: Article already exists, skipping');
+        return
+      }
+
+      seenUrlsRef.current.add(article.url)
       qc.setQueryData(['infiniteArticles'], (old: unknown) => {
         const oldData = old as { pageParams: number[]; pages: typeof article[] } | undefined;
         if (!oldData) return { pageParams: [0], pages: [article] }
@@ -112,6 +132,14 @@ export default function Reader() {
       console.log('Reader: Calling apiGetByTitle...');
       const article = await apiGetByTitle(title)
       console.log('Reader: Got article:', article?.title);
+
+      // Check if article already exists
+      if (seenUrlsRef.current.has(article.url)) {
+        console.log('Reader: Article already exists, skipping');
+        return
+      }
+
+      seenUrlsRef.current.add(article.url)
       qc.setQueryData(['infiniteArticles'], (old: unknown) => {
         const oldData = old as { pageParams: number[]; pages: typeof article[] } | undefined;
         if (!oldData) return { pageParams: [0, 1], pages: [article] }
