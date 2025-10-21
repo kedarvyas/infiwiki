@@ -8,15 +8,30 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { Moon, Menu } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import * as React from 'react';
+
+const THEMES = ['light', 'dark', 'sage', 'purple'] as const;
 
 export default function TopMenu() {
   const { theme, setTheme } = useTheme();
   const [aboutOpen, setAboutOpen] = React.useState(false);
-  const isDark = theme === 'dark';
 
-  const toggleDark = () => setTheme(isDark ? 'light' : 'dark');
+  const cycleTheme = () => {
+    const currentIndex = THEMES.indexOf(theme as typeof THEMES[number]);
+    const nextIndex = (currentIndex + 1) % THEMES.length;
+    setTheme(THEMES[nextIndex]);
+  };
+
+  // Get theme color for the button indicator
+  const getThemeColor = () => {
+    switch (theme) {
+      case 'dark': return 'oklch(0.141 0.005 285.823)';
+      case 'sage': return 'oklch(0.35 0.06 145)';
+      case 'purple': return 'oklch(0.4 0.12 300)';
+      default: return 'oklch(1 0 0)';
+    }
+  };
 
   return (
     <>
@@ -34,10 +49,15 @@ export default function TopMenu() {
             <DropdownMenuItem role="menuitem" onClick={() => setAboutOpen(true)}>
               About
             </DropdownMenuItem>
-            <DropdownMenuItem role="menuitem" onClick={toggleDark}>
-              <Moon className="mr-2 h-4 w-4" />
-              <span>Dark mode</span>
-              <div role="switch" aria-label="Dark mode" aria-checked={isDark} className="sr-only" />
+            <DropdownMenuItem role="menuitem" onClick={cycleTheme}>
+              <div
+                className="mr-2 h-4 w-4 rounded-full border-2 transition-colors"
+                style={{
+                  backgroundColor: getThemeColor(),
+                  borderColor: theme === 'light' ? 'oklch(0.141 0.005 285.823)' : getThemeColor()
+                }}
+              />
+              <span>Theme</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
