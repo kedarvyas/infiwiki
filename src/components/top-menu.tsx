@@ -29,7 +29,7 @@ export default function TopMenu() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Infiniwiki</DropdownMenuLabel>
+            <DropdownMenuLabel>Infiwiki</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem role="menuitem" onClick={() => setAboutOpen(true)}>
               About
@@ -48,7 +48,7 @@ export default function TopMenu() {
           <DialogHeader>
             <DialogTitle>About</DialogTitle>
             <DialogDescription>
-              Infiniwiki: an infinite-scroll Wikipedia reader. Text from Wikipedia, licensed under CC BY-SA 4.0. Links go to the original source.
+              Infiwiki: an infinite-scroll Wikipedia reader. Text from Wikipedia, licensed under CC BY-SA 4.0. Links go to the original source.
             </DialogDescription>
           </DialogHeader>
           <Separator />

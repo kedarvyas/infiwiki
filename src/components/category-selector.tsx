@@ -16,6 +16,8 @@ export const CATEGORIES = [
   { id: null, name: 'All Topics', value: null },
   { id: 'science', name: 'Science', value: 'Science' },
   { id: 'sports', name: 'Sports', value: 'Sports' },
+  { id: 'technology', name: 'Technology', value: 'Technology' },
+  { id: 'history', name: 'History', value: 'History' },
 ] as const;
 
 interface CategorySelectorProps {

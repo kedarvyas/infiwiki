@@ -4,7 +4,7 @@ import createDOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 
 const UA =
-  'Infiniwiki/0.1 (https://github.com/youruser/infiniwiki; kedar@example.com)';
+  'Infiwiki/0.1 (https://github.com/youruser/infiwiki; kedar@example.com)';
 
 function sanitizeHtml(html: string): string {
   const { window } = new JSDOM('');
@@ -144,12 +144,11 @@ async function buildArticleFromTitle(title: string): Promise<Article> {
     };
   };
 
-  // CHANGED: use RESTBase summary endpoint (more tolerant)
-  const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encoded}`;
-  const summary = await fetchJSON<Summary>(summaryUrl);
-
-  const mobileHtmlUrl = `https://en.wikipedia.org/api/rest_v1/page/mobile-html/${encoded}`;
-  const rawHtml = await fetchText(mobileHtmlUrl);
+  // Fetch both in parallel for faster loading
+  const [summary, rawHtml] = await Promise.all([
+    fetchJSON<Summary>(`https://en.wikipedia.org/api/rest_v1/page/summary/${encoded}`),
+    fetchText(`https://en.wikipedia.org/api/rest_v1/page/mobile-html/${encoded}`)
+  ]);
 
   const html = sanitizeHtml(rawHtml);
   const text = htmlToText(html);
@@ -210,6 +209,67 @@ async function getArticlesFromCategory(
   const articles: Set<string> = new Set();
   const visitedCategories: Set<string> = new Set();
 
+  // Filter to exclude meta/list articles and other redundant pages
+  const isValidArticle = (title: string): boolean => {
+    const lower = title.toLowerCase();
+
+    // Exclude list pages, index pages, glossaries, outlines, timelines
+    if (lower.startsWith('list of ')) return false;
+    if (lower.startsWith('lists of ')) return false;
+    if (lower.startsWith('index of ')) return false;
+    if (lower.startsWith('glossary of ')) return false;
+    if (lower.startsWith('outline of ')) return false;
+    if (lower.startsWith('timeline of ')) return false;
+    if (lower.startsWith('bibliography of ')) return false;
+    if (lower.startsWith('history of ')) return false;
+
+    // Exclude year-based and century-based articles
+    // e.g., "1784 in sports", "2023 in technology"
+    if (/^\d{3,4}\s+in\s+/.test(lower)) return false;
+    // e.g., "1990s in...", "2000s in..."
+    if (/^\d{3,4}s\s+in\s+/.test(lower)) return false;
+    // e.g., "37th century BC", "21st century", "3rd century AD"
+    if (/^\d+(st|nd|rd|th)\s+century/.test(lower)) return false;
+    // e.g., "AD 100", "100 BC"
+    if (/^(ad|bc)\s+\d+/.test(lower)) return false;
+    if (/^\d+\s+(ad|bc)/.test(lower)) return false;
+
+    // Exclude "[topic] in [country/region]" pattern
+    // e.g., "Telecommunications in Honduras", "Education in France", "Sports in Japan"
+    if (/\s+in\s+[A-Z][a-z]+(\s+[A-Z][a-z]+)*$/.test(title)) {
+      // Check if it matches the pattern of a topic followed by location
+      const parts = title.split(' in ');
+      if (parts.length === 2) {
+        // Common infrastructure/topic words that indicate these generic pages
+        const genericTopics = [
+          'telecommunications', 'education', 'transport', 'healthcare', 'economy',
+          'politics', 'media', 'religion', 'culture', 'agriculture', 'energy',
+          'military', 'communications', 'broadcasting', 'football', 'cricket',
+          'basketball', 'rugby', 'athletics', 'science', 'technology'
+        ];
+        const topic = parts[0].toLowerCase().trim();
+        if (genericTopics.some(t => topic.includes(t))) {
+          return false;
+        }
+      }
+    }
+
+    // Exclude other meta pages
+    if (lower.startsWith('portal:')) return false;
+    if (lower.startsWith('category:')) return false;
+    if (lower.startsWith('template:')) return false;
+    if (lower.startsWith('wikipedia:')) return false;
+    if (lower.startsWith('file:')) return false;
+    if (lower.includes('(disambiguation)')) return false;
+    if (lower.includes('(overview)')) return false;
+
+    // Exclude chronology and year pages
+    if (lower.startsWith('chronology of ')) return false;
+    if (lower.endsWith(' chronology')) return false;
+
+    return true;
+  };
+
   async function fetchFromCategory(cat: string, depth: number): Promise<void> {
     if (depth > maxDepth || visitedCategories.has(cat) || articles.size >= maxArticles) {
       return;
@@ -224,7 +284,25 @@ async function getArticlesFromCategory(
     };
 
     try {
-      // Get pages (articles) from this category
+      // Prioritize exploring subcategories first for better content diversity
+      if (depth < maxDepth) {
+        const subcatsUrl =
+          'https://en.wikipedia.org/w/api.php' +
+          `?action=query&list=categorymembers&cmtitle=Category:${encodeURIComponent(cat)}` +
+          '&cmtype=subcat&cmlimit=15&format=json&origin=*';
+
+        const subcatsData = await fetchJSON<CategoryMembersResponse>(subcatsUrl);
+        const subcats = subcatsData.query?.categorymembers || [];
+
+        // Process subcategories to get diverse content
+        for (const subcat of subcats) {
+          if (articles.size >= maxArticles) break;
+          const subcatName = subcat.title.replace(/^Category:/, '');
+          await fetchFromCategory(subcatName, depth + 1);
+        }
+      }
+
+      // Get pages (articles) from this category, but filter out meta pages
       const pagesUrl =
         'https://en.wikipedia.org/w/api.php' +
         `?action=query&list=categorymembers&cmtitle=Category:${encodeURIComponent(cat)}` +
@@ -234,28 +312,10 @@ async function getArticlesFromCategory(
       const pages = pagesData.query?.categorymembers || [];
 
       pages.forEach(page => {
-        if (articles.size < maxArticles) {
+        if (articles.size < maxArticles && isValidArticle(page.title)) {
           articles.add(page.title);
         }
       });
-
-      // Always explore subcategories to get diverse content
-      if (depth < maxDepth) {
-        const subcatsUrl =
-          'https://en.wikipedia.org/w/api.php' +
-          `?action=query&list=categorymembers&cmtitle=Category:${encodeURIComponent(cat)}` +
-          '&cmtype=subcat&cmlimit=10&format=json&origin=*';
-
-        const subcatsData = await fetchJSON<CategoryMembersResponse>(subcatsUrl);
-        const subcats = subcatsData.query?.categorymembers || [];
-
-        // Process subcategories in parallel batches
-        for (const subcat of subcats) {
-          if (articles.size >= maxArticles) break;
-          const subcatName = subcat.title.replace(/^Category:/, '');
-          await fetchFromCategory(subcatName, depth + 1);
-        }
-      }
     } catch (error) {
       console.error(`Error fetching category ${cat}:`, error);
       // Continue even if one category fails

@@ -53,8 +53,11 @@ export default function Reader() {
   // Load additional articles on initial load
   React.useEffect(() => {
     if (status === 'success' && data?.pages.length === 1) {
-      // Load 1 more article initially for a total of 2
-      fetchNextPage()
+      // Load 2 more articles initially for a total of 3
+      Promise.all([
+        fetchNextPage(),
+        new Promise(resolve => setTimeout(resolve, 150)).then(() => fetchNextPage())
+      ])
     }
   }, [status, data?.pages.length, fetchNextPage])
 
@@ -69,10 +72,14 @@ export default function Reader() {
         const entry = entries[0]
         if (entry.isIntersecting && !pending && !isFetchingNextPage) {
           pending = true
-          fetchNextPage().finally(() => { pending = false })
+          // Fetch 2 articles at once for smoother experience
+          Promise.all([
+            fetchNextPage(),
+            new Promise(resolve => setTimeout(resolve, 100)).then(() => fetchNextPage())
+          ]).finally(() => { pending = false })
         }
       },
-      { rootMargin: '1200px 0px' }
+      { rootMargin: '2000px 0px' } // Increased from 1200px for earlier preloading
     )
     io.observe(el)
     return () => io.disconnect()
@@ -81,6 +88,7 @@ export default function Reader() {
   const pages = data?.pages ?? []
 
   const [searchQuery, setSearchQuery] = React.useState('')
+  const [isSearching, setIsSearching] = React.useState(false)
 
   // Handle category change - reset everything
   const handleCategoryChange = (category: string | null) => {
@@ -91,18 +99,70 @@ export default function Reader() {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!searchQuery.trim()) return
-    
+    if (!searchQuery.trim() || isSearching) return
+
+    setIsSearching(true)
+    const query = searchQuery
     try {
-      console.log('Search: Starting search for:', searchQuery);
+      console.log('Search: Starting search for:', query);
       // Use the correct function name from API client
       const { apiSearchTitle } = await import('@/lib/api.client')
-      const bestTitle = await apiSearchTitle(searchQuery)
+      const bestTitle = await apiSearchTitle(query)
       console.log('Search: Found title:', bestTitle);
-      await prependByTitle(bestTitle) // Add to TOP of page, not bottom
-      setSearchQuery('') // Clear search after successful search
+
+      // Clear search and scroll immediately for better UX
+      setSearchQuery('')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+
+      // Show loading placeholder immediately
+      const loadingArticle = {
+        title: bestTitle,
+        url: `https://en.wikipedia.org/wiki/${encodeURIComponent(bestTitle)}`,
+        html: '<div class="p-8 text-center text-muted-foreground">Loading article...</div>',
+        text: 'Loading...',
+        description: 'Loading...'
+      }
+
+      // Add loading placeholder to top
+      qc.setQueryData(['infiniteArticles', selectedCategory], (old: unknown) => {
+        const oldData = old as { pageParams: number[]; pages: typeof loadingArticle[] } | undefined;
+        if (!oldData) return { pageParams: [0], pages: [loadingArticle] }
+        return {
+          ...oldData,
+          pageParams: [0, ...oldData.pageParams.map((p: number) => p + 1)],
+          pages: [loadingArticle, ...oldData.pages],
+        }
+      })
+
+      // Fetch full article in background and replace placeholder
+      const article = await apiGetByTitle(bestTitle)
+
+      // Replace loading placeholder with actual article
+      qc.setQueryData(['infiniteArticles', selectedCategory], (old: unknown) => {
+        const oldData = old as { pageParams: number[]; pages: typeof article[] } | undefined;
+        if (!oldData) return { pageParams: [0], pages: [article] }
+        // Replace first item (loading placeholder) with actual article
+        return {
+          ...oldData,
+          pages: [article, ...oldData.pages.slice(1)],
+        }
+      })
+
+      seenUrlsRef.current.add(article.url)
     } catch (error) {
       console.error('Search error:', error)
+      // Remove loading placeholder on error
+      qc.setQueryData(['infiniteArticles', selectedCategory], (old: unknown) => {
+        const oldData = old as { pageParams: number[]; pages: any[] } | undefined;
+        if (!oldData || oldData.pages.length === 0) return old
+        return {
+          ...oldData,
+          pageParams: oldData.pageParams.slice(1),
+          pages: oldData.pages.slice(1),
+        }
+      })
+    } finally {
+      setIsSearching(false)
     }
   }
 
@@ -182,8 +242,9 @@ export default function Reader() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search"
-              className="w-full max-w-xs px-0 py-2 text-sm bg-transparent border-none outline-none text-foreground placeholder-muted-foreground focus:outline-none"
+              placeholder={isSearching ? "Searching..." : "Search"}
+              disabled={isSearching}
+              className="w-full max-w-xs px-0 py-2 text-sm bg-transparent border-none outline-none text-foreground placeholder-muted-foreground focus:outline-none disabled:opacity-50"
               style={{fontFamily: "'Courier New', 'Monaco', 'Space Mono', 'Consolas', 'Lucida Console', monospace"}}
             />
           </form>
@@ -193,7 +254,7 @@ export default function Reader() {
             className="text-2xl sm:text-3xl md:text-4xl font-light text-foreground tracking-wide whitespace-nowrap"
             style={{fontFamily: "'Courier New', 'Monaco', 'Space Mono', 'Consolas', 'Lucida Console', monospace"}}
           >
-            I N F I N I T E W I K I
+            I N F I W I K I
           </h1>
         </header>
       </div>
@@ -208,7 +269,14 @@ export default function Reader() {
           <ArticleView key={(article?.url ?? 'u') + idx} article={article} />
         ))}
         <div ref={sentinelRef} aria-label="sentinel" className="h-10" />
-        {isFetchingNextPage && <div className="p-4 text-center">Loading more…</div>}
+        {isFetchingNextPage && (
+          <div className="p-8 text-center">
+            <div className="animate-pulse space-y-4">
+              <div className="h-4 bg-muted rounded w-3/4 mx-auto"></div>
+              <div className="h-4 bg-muted rounded w-1/2 mx-auto"></div>
+            </div>
+          </div>
+        )}
       </div>
       <SelectionNavigator onResolve={prependByTitle} />
       <FooterAttribution />

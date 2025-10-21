@@ -130,21 +130,45 @@
   .prose {
     font-family: 'Courier New', 'Monaco', 'Space Mono', 'Consolas', 'Lucida Console', monospace !important;
   }
-  
+
   .prose h1,
-  .prose h2, 
+  .prose h2,
   .prose h3,
   .prose h4,
   .prose h5,
   .prose h6 {
     font-family: 'Courier New', 'Monaco', 'Space Mono', 'Consolas', 'Lucida Console', monospace !important;
   }
-  
+
   .prose p,
   .prose li,
   .prose blockquote,
   .prose code,
   .prose pre {
     font-family: 'Courier New', 'Monaco', 'Space Mono', 'Consolas', 'Lucida Console', monospace !important;
+  }
+
+  /* Hover effect for Wikipedia links on desktop */
+  @media (hover: hover) and (pointer: fine) {
+    .prose a[href*="wikipedia.org"] {
+      text-decoration: none;
+      color: inherit;
+      position: relative;
+      padding: 2px 4px;
+      margin: -2px -4px;
+      border-radius: 3px;
+      transition: all 0.2s ease-in-out;
+    }
+
+    .prose a[href*="wikipedia.org"]:hover {
+      background-color: oklch(0.65 0.2 250 / 0.25);
+      color: oklch(0.35 0.25 250);
+      text-decoration: none;
+    }
+
+    .dark .prose a[href*="wikipedia.org"]:hover {
+      background-color: oklch(0.45 0.2 250 / 0.3);
+      color: oklch(0.75 0.2 250);
+    }
   }
 }
