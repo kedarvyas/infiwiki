@@ -110,9 +110,8 @@ export default function Reader() {
       const bestTitle = await apiSearchTitle(query)
       console.log('Search: Found title:', bestTitle);
 
-      // Clear search and scroll immediately for better UX
+      // Clear search
       setSearchQuery('')
-      window.scrollTo({ top: 0, behavior: 'smooth' })
 
       // Show loading placeholder immediately
       const loadingArticle = {
@@ -133,6 +132,11 @@ export default function Reader() {
           pages: [loadingArticle, ...oldData.pages],
         }
       })
+
+      // Scroll to top after state update
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'instant' })
+      }, 0)
 
       // Fetch full article in background and replace placeholder
       const article = await apiGetByTitle(bestTitle)
