@@ -99,19 +99,26 @@ export default function Reader() {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!searchQuery.trim() || isSearching) return
+    if (!searchQuery.trim()) return
+
+    // Don't block if already searching - just queue the new search
+    if (isSearching) {
+      console.log('Search already in progress, ignoring');
+      return
+    }
 
     setIsSearching(true)
-    const query = searchQuery
+    const query = searchQuery.trim()
+
+    // Clear search input immediately for better UX
+    setSearchQuery('')
+
     try {
       console.log('Search: Starting search for:', query);
       // Use the correct function name from API client
       const { apiSearchTitle } = await import('@/lib/api.client')
       const bestTitle = await apiSearchTitle(query)
       console.log('Search: Found title:', bestTitle);
-
-      // Clear search
-      setSearchQuery('')
 
       // Fetch the article
       const article = await apiGetByTitle(bestTitle)
@@ -120,10 +127,13 @@ export default function Reader() {
       // Add article to the top of the list (always add, don't check duplicates for search)
       qc.setQueryData(['infiniteArticles', selectedCategory], (old: unknown) => {
         const oldData = old as { pageParams: number[]; pages: typeof article[] } | undefined;
+        console.log('Setting query data, oldData:', oldData?.pages?.length, 'pages');
+
         if (!oldData) return { pageParams: [0], pages: [article] }
 
         // Filter out any existing instances of this article first
         const filteredPages = oldData.pages.filter(page => page.url !== article.url)
+        console.log('Filtered pages:', filteredPages.length, 'Adding article:', article.title);
 
         return {
           pageParams: [0, ...Array(filteredPages.length).fill(0).map((_, i) => i + 1)],
@@ -142,6 +152,7 @@ export default function Reader() {
       console.error('Search error:', error)
     } finally {
       setIsSearching(false)
+      console.log('Search completed, isSearching set to false');
     }
   }
 
