@@ -2,7 +2,7 @@
 'use client'
 import * as React from 'react'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
-import { apiGetRandom, apiGetByTitle } from '@/lib/api.client'
+import { apiGetRandom, apiGetByTitle, type Article } from '@/lib/api.client'
 import ArticleView from './article-view'
 import TopMenu from './top-menu'
 import SelectionNavigator from './selection-navigator'
@@ -34,7 +34,7 @@ export default function Reader() {
     error, // <— capture
   } = useInfiniteQuery({
     queryKey: ['infiniteArticles', selectedCategory],
-    queryFn: async ({ signal, pageParam }) => {
+    queryFn: async ({ signal }) => {
       // Keep fetching until we get a unique article
       let article = await apiGetRandom(selectedCategory || undefined, signal)
       let attempts = 0
@@ -153,7 +153,7 @@ export default function Reader() {
       console.error('Search error:', error)
       // Remove loading placeholder on error
       qc.setQueryData(['infiniteArticles', selectedCategory], (old: unknown) => {
-        const oldData = old as { pageParams: number[]; pages: any[] } | undefined;
+        const oldData = old as { pageParams: number[]; pages: Article[] } | undefined;
         if (!oldData || oldData.pages.length === 0) return old
         return {
           ...oldData,

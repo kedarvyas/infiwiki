@@ -11,7 +11,7 @@ export type Article = {
 async function parseOrText(res: Response) {
     const ct = res.headers.get('content-type') || ''
     if (ct.includes('application/json')) {
-        try { return await res.json() } catch (e) { /* fall through */ }
+        try { return await res.json() } catch { /* fall through */ }
     }
     return await res.text()
 }
