@@ -113,70 +113,33 @@ export default function Reader() {
       // Clear search
       setSearchQuery('')
 
-      // Create unique placeholder URL to track this specific search
-      const placeholderUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(bestTitle)}#loading-${Date.now()}`
-
-      // Show loading placeholder immediately
-      const loadingArticle = {
-        title: bestTitle,
-        url: placeholderUrl,
-        html: '<div class="p-8 text-center text-muted-foreground">Loading article...</div>',
-        text: 'Loading...',
-        description: 'Loading...'
-      }
-
-      // Add loading placeholder to top
-      qc.setQueryData(['infiniteArticles', selectedCategory], (old: unknown) => {
-        const oldData = old as { pageParams: number[]; pages: typeof loadingArticle[] } | undefined;
-        if (!oldData) return { pageParams: [0], pages: [loadingArticle] }
-        return {
-          ...oldData,
-          pageParams: [0, ...oldData.pageParams.map((p: number) => p + 1)],
-          pages: [loadingArticle, ...oldData.pages],
-        }
-      })
-
-      // Scroll to top after state update
-      setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: 'instant' })
-      }, 0)
-
-      // Fetch full article in background and replace placeholder
+      // Fetch the article
       const article = await apiGetByTitle(bestTitle)
+      console.log('Fetched article:', article.title, article.url);
 
-      // Replace the specific loading placeholder with actual article
+      // Add article to the top of the list (always add, don't check duplicates for search)
       qc.setQueryData(['infiniteArticles', selectedCategory], (old: unknown) => {
         const oldData = old as { pageParams: number[]; pages: typeof article[] } | undefined;
         if (!oldData) return { pageParams: [0], pages: [article] }
 
-        // Find and replace the specific placeholder by URL
-        const pages = oldData.pages.map(page =>
-          page.url === placeholderUrl ? article : page
-        )
+        // Filter out any existing instances of this article first
+        const filteredPages = oldData.pages.filter(page => page.url !== article.url)
 
         return {
-          ...oldData,
-          pages,
+          pageParams: [0, ...Array(filteredPages.length).fill(0).map((_, i) => i + 1)],
+          pages: [article, ...filteredPages],
         }
       })
 
       seenUrlsRef.current.add(article.url)
+
+      // Scroll to top after adding article
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'instant' })
+      }, 0)
+
     } catch (error) {
       console.error('Search error:', error)
-      // Remove loading placeholder on error - just filter out loading placeholders
-      qc.setQueryData(['infiniteArticles', selectedCategory], (old: unknown) => {
-        const oldData = old as { pageParams: number[]; pages: Article[] } | undefined;
-        if (!oldData || oldData.pages.length === 0) return old
-
-        // Remove any loading placeholders (containing #loading-)
-        const pages = oldData.pages.filter(page => !page.url.includes('#loading-'))
-
-        return {
-          ...oldData,
-          pageParams: oldData.pageParams.slice(0, pages.length),
-          pages,
-        }
-      })
     } finally {
       setIsSearching(false)
     }
