@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     const title = await searchTitle(q);
     return NextResponse.json({ title }, {
       status: 200,
-      headers: { 'Cache-Control': 's-maxage=86400, stale-while-revalidate=3600' },
+      headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal error';
