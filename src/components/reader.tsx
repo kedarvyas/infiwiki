@@ -113,10 +113,13 @@ export default function Reader() {
       // Clear search
       setSearchQuery('')
 
+      // Create unique placeholder URL to track this specific search
+      const placeholderUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(bestTitle)}#loading-${Date.now()}`
+
       // Show loading placeholder immediately
       const loadingArticle = {
         title: bestTitle,
-        url: `https://en.wikipedia.org/wiki/${encodeURIComponent(bestTitle)}`,
+        url: placeholderUrl,
         html: '<div class="p-8 text-center text-muted-foreground">Loading article...</div>',
         text: 'Loading...',
         description: 'Loading...'
@@ -141,28 +144,37 @@ export default function Reader() {
       // Fetch full article in background and replace placeholder
       const article = await apiGetByTitle(bestTitle)
 
-      // Replace loading placeholder with actual article
+      // Replace the specific loading placeholder with actual article
       qc.setQueryData(['infiniteArticles', selectedCategory], (old: unknown) => {
         const oldData = old as { pageParams: number[]; pages: typeof article[] } | undefined;
         if (!oldData) return { pageParams: [0], pages: [article] }
-        // Replace first item (loading placeholder) with actual article
+
+        // Find and replace the specific placeholder by URL
+        const pages = oldData.pages.map(page =>
+          page.url === placeholderUrl ? article : page
+        )
+
         return {
           ...oldData,
-          pages: [article, ...oldData.pages.slice(1)],
+          pages,
         }
       })
 
       seenUrlsRef.current.add(article.url)
     } catch (error) {
       console.error('Search error:', error)
-      // Remove loading placeholder on error
+      // Remove loading placeholder on error - just filter out loading placeholders
       qc.setQueryData(['infiniteArticles', selectedCategory], (old: unknown) => {
         const oldData = old as { pageParams: number[]; pages: Article[] } | undefined;
         if (!oldData || oldData.pages.length === 0) return old
+
+        // Remove any loading placeholders (containing #loading-)
+        const pages = oldData.pages.filter(page => !page.url.includes('#loading-'))
+
         return {
           ...oldData,
-          pageParams: oldData.pageParams.slice(1),
-          pages: oldData.pages.slice(1),
+          pageParams: oldData.pageParams.slice(0, pages.length),
+          pages,
         }
       })
     } finally {
