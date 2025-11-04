@@ -53,10 +53,12 @@ export default function Reader() {
   // Load additional articles on initial load
   React.useEffect(() => {
     if (status === 'success' && data?.pages.length === 1) {
-      // Load 2 more articles initially for a total of 3
+      // Load 4 more articles initially for a total of 5
       Promise.all([
         fetchNextPage(),
-        new Promise(resolve => setTimeout(resolve, 150)).then(() => fetchNextPage())
+        new Promise(resolve => setTimeout(resolve, 100)).then(() => fetchNextPage()),
+        new Promise(resolve => setTimeout(resolve, 200)).then(() => fetchNextPage()),
+        new Promise(resolve => setTimeout(resolve, 300)).then(() => fetchNextPage())
       ])
     }
   }, [status, data?.pages.length, fetchNextPage])
@@ -72,14 +74,17 @@ export default function Reader() {
         const entry = entries[0]
         if (entry.isIntersecting && !pending && !isFetchingNextPage) {
           pending = true
-          // Fetch 2 articles at once for smoother experience
+          // Fetch 5 articles at once for smoother experience
           Promise.all([
             fetchNextPage(),
-            new Promise(resolve => setTimeout(resolve, 100)).then(() => fetchNextPage())
+            new Promise(resolve => setTimeout(resolve, 100)).then(() => fetchNextPage()),
+            new Promise(resolve => setTimeout(resolve, 200)).then(() => fetchNextPage()),
+            new Promise(resolve => setTimeout(resolve, 300)).then(() => fetchNextPage()),
+            new Promise(resolve => setTimeout(resolve, 400)).then(() => fetchNextPage())
           ]).finally(() => { pending = false })
         }
       },
-      { rootMargin: '2000px 0px' } // Increased from 1200px for earlier preloading
+      { rootMargin: '3000px 0px' } // Large margin to trigger when halfway through content
     )
     io.observe(el)
     return () => io.disconnect()
